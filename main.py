@@ -21,39 +21,51 @@ from pymoo.factory import get_problem, get_visualization, get_reference_directio
 from pymoo.algorithms.moead import MOEAD
 from pymoo.algorithms.nsga3 import NSGA3
 import copy
-#assets = ["GOOG", "AAPL", "TSLA", "AMZN", "NFLX"]
-#assets = { 1 : "GOOG", 2 : "AAPL", 3 : "TSLA", 4 : "AMZN", 5 : "NFLX"}
+from sklearn.cluster import KMeans
+import csv
+import os
+
+
+
+num_cluster = 20
+symbols = []
+data = []
+clusters = []
 
 
 def eval(portfolio,weights):
 
-    return np.array([random.randint(1,100),random.randint(1000,100000)])
-    #Get the stock starting date
-    stockStartDate = '2019-01-01'
-    # Get the stocks ending date aka todays date and format it in the form YYYY-MM-DD
-    today = datetime.today().strftime('%Y-%m-%d')
 
-    #Create a dataframe to store the adjusted close price of the stocks
-    df = pd.DataFrame()
-    #Store the adjusted close price of stock into the data frame
+    # Online data method
+    # #Get the stock starting date
+    # stockStartDate = '2019-01-01'
+    # # Get the stocks ending date aka todays date and format it in the form YYYY-MM-DD
+    # today = datetime.today().strftime('%Y-%m-%d')
 
-    for stock in portfolio:
-       df[stock] = web.DataReader(stock,data_source='yahoo',start=stockStartDate , end=today)['Close']
-    df
+    # #Create a dataframe to store the adjusted close price of the stocks
+    # df = pd.DataFrame()
+    # #Store the adjusted close price of stock into the data frame
 
+    # for stock in portfolio:
+    #    df[stock] = web.DataReader(stock,data_source='yahoo',start=stockStartDate , end=today)['Close']
+    df = {}
+    for asset in portfolio:
+        df[asset] = data[asset]
+    df = pd.DataFrame(df)
     # Create the title 'Portfolio Close Price History'
     title = 'Portfolio Close Price History    '
     #Get the stocks
     my_stocks = df
-    #Create and plot the graph
-    plt.figure(figsize=(12.2,4.5)) #width = 12.2in, height = 4.5
-    # Loop through each stock and plot the Adj Close for each day
-    for c in my_stocks.columns.values:
-        plt.plot( my_stocks[c],  label=c)#plt.plot( X-Axis , Y-Axis, line_width, alpha_for_blending,  label)
-        plt.title(title)
-        plt.xlabel('Date',fontsize=18)
-        plt.ylabel('Price USD ($)',fontsize=18)
-        plt.legend(my_stocks.columns.values, loc='upper left')
+
+    # #Create and plot the graph
+    # plt.figure(figsize=(12.2,4.5)) #width = 12.2in, height = 4.5
+    # # Loop through each stock and plot the Adj Close for each day
+    # for c in my_stocks.columns.values:
+    #     plt.plot( my_stocks[c],  label=c)#plt.plot( X-Axis , Y-Axis, line_width, alpha_for_blending,  label)
+    #     plt.title(title)
+    #     plt.xlabel('Date',fontsize=18)
+    #     plt.ylabel('Price USD ($)',fontsize=18)
+    #     plt.legend(my_stocks.columns.values, loc='upper left')
 
     #Show the daily simple returns, Formula = new_price/old_price - 1
     returns = df.pct_change()
@@ -63,28 +75,25 @@ def eval(portfolio,weights):
     port_standardD = np.sqrt(port_variance)
     portfolioSimpleAnnualReturn = np.sum(returns.mean()*weights) * 21
 
-    percent_var = round(port_variance, 2) * 100
-    percent_std = round(port_standardD, 2) * 100
-    percent_ret = round(portfolioSimpleAnnualReturn, 2)*100
+    percent_var = round(port_variance, 8) * 100
+    percent_std = round(port_standardD, 8) * 100
+    percent_ret = round(portfolioSimpleAnnualReturn, 8)*100
     
 #    print("Expected annual return : "+ percent_ret)
 #    print('Annual volatility/standard deviation/risk : '+percent_std)
 #    print('Annual variance : '+percent_var)
+    return [-percent_ret, percent_std]
     
-    return np.array([percent_ret, percent_std])
-    
 
 
-search_space = ["GOOG", "AAPL", "TSLA", "AMZN", "NFLX"]
 
-
-def generate_chromosome(xl,xu):
-    num = random.randint(xl, xu)
-    np.random.shuffle(search_space)
-    weights = np.random.random(num)
+def generate_chromosome():
+    weights = np.random.random(num_cluster)
     weights /= np.sum(weights)
-#    pdb.set_trace()
-    return np.concatenate((search_space[:num], weights),axis=0)
+    indexs = [random.choice(clusters[i]) for i in range(num_cluster) ]
+
+    return list(zip(indexs,weights))
+
 
 
 class MyProblem(Problem):
@@ -97,23 +106,16 @@ class MyProblem(Problem):
 
     def _evaluate(self, x, out, *args, **kwargs):
         
-        q = x.tolist()
+        t = x.tolist()
         f = []
-#        pdb.set_trace()
-        for item in q:
-            arr = item[0].tolist()
-            portfolio = arr[:len(arr)//2]
-            weights = arr[len(arr)//2:]
-            
-            for i in range(len(weights)):
-                try:
-                    weights[i] = float(weights[i])
-                except ValueError:
-                    print(weights[i])
-                    pdb.set_trace()
-            result = eval(portfolio,np.array(weights))
+        for i in range(len(t)):
+            portfolio = t[i][0].tolist()
+            for j in range(len(portfolio)):
+                portfolio[j][0] = int(portfolio[j][0])
+            #     portfolio[j][1] = float(portfolio[j][1])
+            p,w = zip(*portfolio)
+            result = eval(list(p),np.array(w))
             f.append(result)
-
         out["F"] = np.array(f)
         
 
@@ -126,16 +128,17 @@ class MySampling(Sampling):
         for i in range(n_samples):
 
             while True:
-                chromosome = generate_chromosome(1,4)
+
+                chromosome = generate_chromosome()
                 r = [(gene == chromosome).all() for gene in list]
 
                 if np.array(r).all() == False or len(list) == 0:
                     break
 
+
             np.append(list,chromosome)
             
-            X[i, 0] = np.array(chromosome, dtype='<U18')
-        
+            X[i, 0] = np.array(chromosome)
         return X
 
 
@@ -159,20 +162,16 @@ class MyCrossover(Crossover):
         for k in range(n_matings):
             #            pdb.set_trace()
             # get the first and the second parent
-            a, b = X[0, k, 0], X[1, k, 0]
-        
-            
-            
-            
-            
-            cut = random.randint(1,min(len(a)//2,len(b)//2))
-            
-            off_a = np.concatenate((a[:cut], b[cut:len(b)//2], a[len(a)//2:len(a)//2+cut], b[len(b)//2+cut:]), axis=0)
-            
-            off_b = np.concatenate((b[:cut], a[cut:len(a)//2], b[len(b)//2:len(b)//2+cut], a[len(a)//2+cut:]), axis=0)
-            
-            
-        
+            a = X[0, k, 0]
+            b = X[1, k, 0]
+            off_a = np.copy(a)
+            off_b = np.copy(b)
+
+            # Random Crossover
+            for i in range(len(a)):
+                if random.random() < 0.2:
+                    off_a[i] = b[i]
+                    off_b[i] = a[i]
             Y[0, k, 0], Y[1, k, 0] = off_a, off_b
 
         return Y
@@ -186,16 +185,21 @@ class MyMutation(Mutation):
         
         for i in range(len(X)):
 
-            r = np.random.random()
+            if random.random() < 1:
+                row = random.randint(0,X[0][0].shape[0]-1)
+                for t in clusters:
+                    if X[i][0][row][0] in t:
+                        X[i][0][row][0] = random.choice(t)
 
-            # with a probabilty of 40% - change the order of characters
-            if r < 0.2:
+            if random.random() < 1:
+                row1 = random.randint(0,X[i][0].shape[0]-1)
+                row2 = random.randint(0,X[i][0].shape[0]-1)
+                new_weight1 = random.uniform(0,X[i][0][row1][1]+X[i][0][row2][1])
+                new_weight2 = X[i][0][row1][1]+X[i][0][row2][1] - new_weight1
+                X[i][0][row1][1] = new_weight1
+                X[i][0][row2][1] = new_weight2
             
-                index = random.randint(0, len(X[i].tolist()[0])//2)
-                X[i][0][index] = random.choice(np.setdiff1d(np.array(search_space), X[i][0][:len(X[i][0])//2]))
 
-            
-            
         return X
 
 
@@ -204,19 +208,43 @@ class MyDuplicateElimination(ElementwiseDuplicateElimination):
     def is_equal(self, a, b):
         la = a.X.tolist()[0].tolist()
         lb = b.X.tolist()[0].tolist()
-        if len(la) != len(lb):
-            return False
-        else:
-            for i in range(len(la)):
-                if la[i] != lb[i]:
+        for i in range(len(la)):
+            if la[i][0] != lb[i][0] or la[i][1] != lb[i][1]:
                     return False
-                    
         return True
 
 
 
+def k_means(data):
+    x = []
+    for i in range(len(data)):
+        x.append(eval([i],np.array([1])))
+
+    kmeans = KMeans(n_clusters=num_cluster,random_state=0).fit(np.array(x))
+    for i in range(num_cluster):
+        clusters.append(np.where(kmeans.labels_==i)[0].tolist())
+
+def data_file_reader(file_name):
+    data = []
+    symbols = []
+    with open(file_name, newline='\n') as f:
+        r = csv.reader(f, delimiter=',')
+        for row in r:
+            if row[1] not in symbols:
+                symbols.append(row[1])
+                data.append([])
+            data[symbols.index(row[1])].append(float(row[3]))
+
+    return data,symbols
+
 
 if __name__ == "__main__":
+    
+    file_name = '/Users/ryan/Projects/FYP4CNN/new_prices.csv'
+
+    data, symbols = data_file_reader(file_name)
+    k_means(data)
+
     problem = MyProblem()
 
     algorithm = NSGA2(pop_size=200,
