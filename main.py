@@ -24,13 +24,39 @@ import copy
 from sklearn.cluster import KMeans
 import csv
 import os
+import argparse
 
 
-
+# Model parameters
+# Number of cluster in kmeans
 num_cluster = 20
+# Asset name
 symbols = []
+# Concrete dataset
 data = []
+# Clustering result
 clusters = []
+# Time interval for objective calculation
+interval = 7
+
+# MOEA parameters
+# Probability of crossover
+crossover_rate = 0.5
+# Probability of mutation
+mutaion_rate = 0.5
+# Population size
+p_size = 200
+# Number of generation
+n_gen = 50
+# Partition number of reference direction
+n_partitions = 150
+# MOEA/D decomposition approach. Support 'pbi' and 'tchebi'
+decomposition = 'tchebi'
+# Number of neighbor in MOEA/D
+n_neighbors = 20
+# MOEA algorithm
+algorithm_name = 'NSGA2'
+
 
 
 def eval(portfolio,weights):
@@ -48,12 +74,18 @@ def eval(portfolio,weights):
 
     # for stock in portfolio:
     #    df[stock] = web.DataReader(stock,data_source='yahoo',start=stockStartDate , end=today)['Close']
+
+    # Sum for each time interval
     df = {}
     for asset in portfolio:
-        df[asset] = data[asset]
+        temp = np.array(data[asset])
+        temp_sum = [np.sum(temp[i*interval:(i+1)*interval]) for i in range(len(data[asset])//interval)]
+        df[asset] = temp_sum
     df = pd.DataFrame(df)
+
+
     # Create the title 'Portfolio Close Price History'
-    title = 'Portfolio Close Price History    '
+    # title = 'Portfolio Close Price History    '
     #Get the stocks
     my_stocks = df
 
@@ -86,7 +118,7 @@ def eval(portfolio,weights):
     
 
 
-
+# Random initialization with random asset in each clusters alongside with random normalized weight
 def generate_chromosome():
     weights = np.random.random(num_cluster)
     weights /= np.sum(weights)
@@ -105,7 +137,6 @@ class MyProblem(Problem):
                          elementwise_evaluation=False)
 
     def _evaluate(self, x, out, *args, **kwargs):
-        
         t = x.tolist()
         f = []
         for i in range(len(t)):
@@ -123,19 +154,13 @@ class MySampling(Sampling):
 
     def _do(self, problem, n_samples, **kwargs):
         X = np.full((n_samples, 1), None, dtype=np.object)
-        
         list = np.array([])
         for i in range(n_samples):
-
             while True:
-
                 chromosome = generate_chromosome()
                 r = [(gene == chromosome).all() for gene in list]
-
                 if np.array(r).all() == False or len(list) == 0:
                     break
-
-
             np.append(list,chromosome)
             
             X[i, 0] = np.array(chromosome)
@@ -149,7 +174,7 @@ class MyCrossover(Crossover):
         super().__init__(2, 2)
 
     def _do(self, problem, X, **kwargs):
-        #        pdb.set_trace()
+
 
         # The input of has the following shape (n_parents, n_matings, n_var)
         _, n_matings, n_var = X.shape
@@ -167,9 +192,9 @@ class MyCrossover(Crossover):
             off_a = np.copy(a)
             off_b = np.copy(b)
 
-            # Random Crossover
+            # Random crossover implemented by exchanging asset alongside with weight
             for i in range(len(a)):
-                if random.random() < 0.2:
+                if random.random() < crossover_rate:
                     off_a[i] = b[i]
                     off_b[i] = a[i]
             Y[0, k, 0], Y[1, k, 0] = off_a, off_b
@@ -182,16 +207,16 @@ class MyMutation(Mutation):
         super().__init__()
 
     def _do(self, problem, X, **kwargs):
-        
+        # Random mutation: 1. Asset mutation 2. Weight redistribution
         for i in range(len(X)):
-
-            if random.random() < 1:
+            # Asset mutation
+            if random.random() < mutaion_rate:
                 row = random.randint(0,X[0][0].shape[0]-1)
                 for t in clusters:
                     if X[i][0][row][0] in t:
                         X[i][0][row][0] = random.choice(t)
-
-            if random.random() < 1:
+            # Weight redistribution
+            if random.random() < mutaion_rate:
                 row1 = random.randint(0,X[i][0].shape[0]-1)
                 row2 = random.randint(0,X[i][0].shape[0]-1)
                 new_weight1 = random.uniform(0,X[i][0][row1][1]+X[i][0][row2][1])
@@ -237,6 +262,13 @@ def data_file_reader(file_name):
 
     return data,symbols
 
+def MOEA_algorithm(algorithm_name):
+    if algorithm_name == 'NAGA2':
+        return NSGA2(pop_size=p_size, sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
+    if algorithm_name == 'NSGA3':
+        return NSGA3(pop_size=p_size, ref_dirs=get_reference_directions('das-dennis', 2, n_partitions=n_partitions),sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
+    if algorithm_name == 'MOEAD':
+        return MOEAD(get_reference_directions("das-dennis",2,n_partitions=n_partitions),n_neighbors=n_neighbors,decomposition=decomposition,pop_size=p_size,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
 
 if __name__ == "__main__":
     
@@ -247,16 +279,18 @@ if __name__ == "__main__":
 
     problem = MyProblem()
 
-    algorithm = NSGA2(pop_size=200,
-                          sampling=MySampling(),
-                          crossover=MyCrossover(),
-                          mutation=MyMutation(),
-                          eliminate_duplicates=MyDuplicateElimination())
+    # algorithm = NSGA2(pop_size=200,
+    #                       sampling=MySampling(),
+    #                       crossover=MyCrossover(),
+    #                       mutation=MyMutation(),
+    #                       eliminate_duplicates=MyDuplicateElimination())
 
-    #     algorithm = MOEAD(get_reference_directions("das-dennis",2,n_partitions=5),n_neighbors=3,decomposition="pbi",pop_size=16,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
-    # algorithm = NSGA3(pop_size=200, ref_dirs=get_reference_directions("das-dennis", 2, n_partitions=150),
-    #                   sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(),
-    #                   eliminate_duplicates=MyDuplicateElimination())
+    # #     algorithm = MOEAD(get_reference_directions("das-dennis",2,n_partitions=5),n_neighbors=3,decomposition="pbi",pop_size=16,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
+    # # algorithm = NSGA3(pop_size=200, ref_dirs=get_reference_directions("das-dennis", 2, n_partitions=150),
+    # #                   sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(),
+    # #                   eliminate_duplicates=MyDuplicateElimination())
+
+    algorithm = MOEA_algorithm(algorithm_name)
     obj = copy.deepcopy(algorithm)
     obj.setup(problem, ("n_gen", 50), verbose=True, seed=1)
     while obj.has_next():
