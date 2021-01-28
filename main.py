@@ -263,7 +263,7 @@ def data_file_reader(file_name):
     return data,symbols
 
 def MOEA_algorithm(algorithm_name):
-    if algorithm_name == 'NAGA2':
+    if algorithm_name == 'NSGA2':
         return NSGA2(pop_size=p_size, sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
     if algorithm_name == 'NSGA3':
         return NSGA3(pop_size=p_size, ref_dirs=get_reference_directions('das-dennis', 2, n_partitions=n_partitions),sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
@@ -271,6 +271,54 @@ def MOEA_algorithm(algorithm_name):
         return MOEAD(get_reference_directions("das-dennis",2,n_partitions=n_partitions),n_neighbors=n_neighbors,decomposition=decomposition,pop_size=p_size,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
 
 if __name__ == "__main__":
+    # Argument parser
+    parser = argparse.ArgumentParser(description='Multi-Objective Evolutionary Portfolio Optimization')
+    parser.add_argument("-a","--algorithm",help="MOEAD, NSGA2, NSGA3")
+    parser.add_argument("-d","--decomposition",help="pbi, tchebi")
+    parser.add_argument("-p","--population_size",type=int, help="Population size for MOEA")
+    parser.add_argument("-g","--n_gen",type=int, help="Number of Generation")
+    parser.add_argument("-c","--crossover_rate",type=float,help="Probability of crossover")
+    parser.add_argument("-m","--mutation_rate",type=float,help="Probability of mutation")
+    parser.add_argument("-s","--n_partitions",type=int,help="Partition number of reference direction")
+    parser.add_argument("-n","--n_neighbors",type=int,help="Number of neighbors in MOEA/D")
+    parser.add_argument("-t","--time_interval",type=int,help="Time interval for objective calculation")
+    parser.add_argument("-q","--num_cluster",type=int,help="Number of clusters in kmeans")
+    
+    args = parser.parse_args()
+    if args.algorithm:
+        algorithm_name = args.algorithm
+    if args.decomposition:
+        decomposition = args.decomposition
+    if args.population_size:
+        p_size = args.population_size
+    if args.n_gen:
+        n_gen = args.n_gen
+    if args.crossover_rate:
+        crossover_rate = args.crossover_rate
+    if args.mutation_rate:
+        mutaion_rate = args.mutaion_rate
+    if args.n_partitions:
+        n_partitions = args.n_partitions
+    if args.n_neighbors:
+        n_neighbors = args.n_neighbors
+    if args.time_interval:
+        interval = args.time_interval
+    if args.num_cluster:
+        num_cluster = args.num_cluster
+
+
+    # Basic info display
+    info = "Multi-Objective Evolutionary Portfolio Optimization\nNumber of cluster:{num_cluster}\nTime interval:{interval}\nAlgorithm:{algorithm_name}\nPopulation size:{p_size}\nNumber of generation:{n_gen}\nCrossover rate:{crossover_rate}\nMutation rate:{mutation_rate}\n"
+    MOEAD_addtition_info = "Decomposition approach:{decomposition}\nPartition number of reference direction:{n_partitions}\nNumber of neighbors:{n_neighbors}\n"
+    NSGA3_addition_info = "Partition number of reference direction:{n_partitions}"
+    if algorithm_name == "NSGA2":
+        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate))
+    if algorithm_name == "NSGA3":
+        info += NSGA3_addition_info
+        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,decomposition=decomposition,n_partitions=n_partitions,n_neighbors=n_neighbors))
+    if algorithm_name == "MOEAD":
+        info += MOEAD_addtition_info
+        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,n_partitions=n_partitions))
     
     file_name = '/Users/ryan/Projects/FYP4CNN/new_prices.csv'
 
