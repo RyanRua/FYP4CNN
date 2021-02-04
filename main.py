@@ -55,7 +55,7 @@ decomposition = 'tchebi'
 # Number of neighbor in MOEA/D
 n_neighbors = 20
 # MOEA algorithm
-algorithm_name = 'NSGA2'
+algorithm_name = 'NSGA3'
 
 
 
@@ -270,6 +270,9 @@ def MOEA_algorithm(algorithm_name):
     if algorithm_name == 'MOEAD':
         return MOEAD(get_reference_directions("das-dennis",2,n_partitions=n_partitions),n_neighbors=n_neighbors,decomposition=decomposition,pop_size=p_size,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
 
+def visualization():
+    return 2
+
 if __name__ == "__main__":
     # Argument parser
     parser = argparse.ArgumentParser(description='Multi-Objective Evolutionary Portfolio Optimization')
@@ -340,9 +343,24 @@ if __name__ == "__main__":
 
     algorithm = MOEA_algorithm(algorithm_name)
     obj = copy.deepcopy(algorithm)
-    obj.setup(problem, ("n_gen", 50), verbose=True, seed=1)
+    obj.setup(problem,("n_gen",n_gen),verbose=True, seed=1)
+    pfs = []
+    chromosomes = []
     while obj.has_next():
         obj.next()
         print(f"gen: {obj.n_gen} n_nds: {len(obj.opt)} constr: {obj.opt.get('CV').min()} ideal: {obj.opt.get('F')}")
         print(obj.opt.get('X').tolist())
-    result = obj.result()
+        pfs.append(obj.opt.get('F'))
+        chromosomes.append(obj.opt.get('X').tolist())
+
+    plt.figure(figsize=(35,35))
+    plt.scatter(-pfs[9][:,0],pfs[9][:,1],color='red',label='gen:10')
+    plt.scatter(-pfs[29][:,0],pfs[29][:,1],color='green',label='gen:30')
+    plt.scatter(-pfs[-1][:,0],pfs[-1][:,1],color='blue',label='gen:50')
+    plt.title('Pareto Front by ' + algorithm_name)
+    plt.xlabel('Expected Annual Return(in percent scale)')
+    plt.ylabel('Standard Deviation(in percent scale)')
+    plt.legend()
+    #plt.savefig('/Users/ryan/Projects/FYP4CNN/result/Pareto Front by ' + algorithm_name + '.png')
+    plt.savefig('Pareto Front by ' + algorithm_name + '.png')
+    
