@@ -16,10 +16,10 @@ from pymoo.model.sampling import Sampling
 from pymoo.model.crossover import Crossover
 from pymoo.model.mutation import Mutation
 from pymoo.model.duplicate import ElementwiseDuplicateElimination
-import torch.multiprocessing as mp
 from pymoo.factory import get_problem, get_visualization, get_reference_directions
 from pymoo.algorithms.moead import MOEAD
 from pymoo.algorithms.nsga3 import NSGA3
+from pymoo.algorithms.ctaea import CTAEA
 import copy
 from sklearn.cluster import KMeans
 import csv
@@ -49,13 +49,13 @@ p_size = 200
 # Number of generation
 n_gen = 50
 # Partition number of reference direction
-n_partitions = 150
+n_partitions = 199 
 # MOEA/D decomposition approach. Support 'pbi' and 'tchebi'
 decomposition = 'tchebi'
 # Number of neighbor in MOEA/D
 n_neighbors = 20
 # MOEA algorithm
-algorithm_name = 'NSGA3'
+algorithm_name = 'MOEAD'
 
 
 
@@ -79,7 +79,8 @@ def eval(portfolio,weights):
     df = {}
     for asset in portfolio:
         temp = np.array(data[asset])
-        temp_sum = [np.sum(temp[i*interval:(i+1)*interval]) for i in range(len(data[asset])//interval)]
+        #temp_sum = [np.sum(temp[i*interval:(i+1)*interval]) for i in range(len(data[asset])//interval)]
+        temp_sum= temp[0:len(temp):interval].tolist();
         df[asset] = temp_sum
     df = pd.DataFrame(df)
 
@@ -268,8 +269,9 @@ def MOEA_algorithm(algorithm_name):
     if algorithm_name == 'NSGA3':
         return NSGA3(pop_size=p_size, ref_dirs=get_reference_directions('das-dennis', 2, n_partitions=n_partitions),sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
     if algorithm_name == 'MOEAD':
-        return MOEAD(get_reference_directions("das-dennis",2,n_partitions=n_partitions),n_neighbors=n_neighbors,decomposition=decomposition,pop_size=p_size,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
-
+        return MOEAD(get_reference_directions("das-dennis",2,n_partitions=n_partitions),n_neighbors=n_neighbors,decomposition=decomposition,sampling=MySampling(),crossover=MyCrossover(),mutation=MyMutation(),eliminate_duplicates=MyDuplicateElimination())
+    if algorithm_name == 'CTAEA':
+        return CTAEA(ref_dirs=get_reference_directions('das-dennis', 2, n_partitions=n_partitions),sampling=MySampling(), crossover=MyCrossover(), mutation=MyMutation(), eliminate_duplicates= MyDuplicateElimination())
 def visualization():
     return 2
 
@@ -313,16 +315,15 @@ if __name__ == "__main__":
     # Basic info display
     info = "Multi-Objective Evolutionary Portfolio Optimization\nNumber of cluster:{num_cluster}\nTime interval:{interval}\nAlgorithm:{algorithm_name}\nPopulation size:{p_size}\nNumber of generation:{n_gen}\nCrossover rate:{crossover_rate}\nMutation rate:{mutation_rate}\n"
     MOEAD_addtition_info = "Decomposition approach:{decomposition}\nPartition number of reference direction:{n_partitions}\nNumber of neighbors:{n_neighbors}\n"
-    NSGA3_addition_info = "Partition number of reference direction:{n_partitions}"
+    reference_direction_info = "Partition number of reference direction:{n_partitions}"
     if algorithm_name == "NSGA2":
         print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate))
-    if algorithm_name == "NSGA3":
-        info += NSGA3_addition_info
-        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,decomposition=decomposition,n_partitions=n_partitions,n_neighbors=n_neighbors))
+    if algorithm_name == "NSGA3" or algorithm_name == "CTAEA":
+        info += reference_direction_info
+        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,n_partitions=n_partitions))
     if algorithm_name == "MOEAD":
         info += MOEAD_addtition_info
-        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=p_size,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,n_partitions=n_partitions))
-    
+        print(info.format(num_cluster=num_cluster,interval=interval,algorithm_name=algorithm_name,p_size=n_partitions+1,n_gen=n_gen,crossover_rate=crossover_rate,mutation_rate=mutaion_rate,decomposition=decomposition,n_partitions=n_partitions,n_neighbors=n_neighbors))
     file_name = '/Users/ryan/Projects/FYP4CNN/new_prices.csv'
 
     data, symbols = data_file_reader(file_name)
@@ -348,8 +349,8 @@ if __name__ == "__main__":
     chromosomes = []
     while obj.has_next():
         obj.next()
-        print(f"gen: {obj.n_gen} n_nds: {len(obj.opt)} constr: {obj.opt.get('CV').min()} ideal: {obj.opt.get('F')}")
-        print(obj.opt.get('X').tolist())
+        #print(f"gen: {obj.n_gen} n_nds: {len(obj.opt)} constr: {obj.opt.get('CV').min()} ideal: {obj.opt.get('F')}")
+        #print(obj.opt.get('X').tolist())
         pfs.append(obj.opt.get('F'))
         chromosomes.append(obj.opt.get('X').tolist())
 
