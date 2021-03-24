@@ -1,9 +1,10 @@
-#Multi-Objective Evolutionary Portfolio Optimization
+## Multi-Objective Evolutionary Portfolio Optimization
+
+```shell
 usage: main.py [-h] [-a ALGORITHM] [-d DECOMPOSITION] [-p POPULATION_SIZE]
                [-g N_GEN] [-c CROSSOVER_RATE] [-m MUTATION_RATE]
                [-s N_PARTITIONS] [-n N_NEIGHBORS] [-t TIME_INTERVAL]
                [-q NUM_CLUSTER] [-o OPTIMIZATION_APPROACH]
-
 optional arguments:
   -h, --help            show this help message and exit
   -a ALGORITHM, --algorithm ALGORITHM
@@ -29,6 +30,7 @@ optional arguments:
   -o OPTIMIZATION_APPROACH, --optimization_approach OPTIMIZATION_APPROACH
                         Automatically optimize hyper parameters: random, rl,
                         ann
-Note: For MOEAD and CTAEA population_size = n_partitions + 1
+```
 
+Note: For MOEAD and CTAEA population_size = n_partitions + 1.
 
